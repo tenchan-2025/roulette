@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部活動カギ閉め担当ルーレット</title>
+    <!-- Tailwind CSS CDNの読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Interフォントを適用 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            user-select: none; /* テキスト選択を無効化 */
+            -webkit-user-select: none; /* Safari/Chrome用 */
+            -moz-user-select: none;    /* Firefox用 */
+            -ms-user-select: none;     /* IE/Edge用 */
+        }
+
+        /* ルーレットのコンテナを中央に配置 */
+        .roulette-container {
+            position: relative;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            aspect-ratio: 1 / 1; /* 正方形を維持 */
+            max-width: 90vw;
+            max-height: 90vh;
+        }
+
+        /* カスタムポインター (三角形のピン) */
+        .pointer {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 30px solid #ef4444; /* 赤 */
+            z-index: 10;
+        }
+
+        /* ルーレットのCanvas */
+        #rouletteCanvas {
+            border-radius: 9999px; /* 真円にする */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), inset 0 0 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        /* 結果アニメーション */
+        .result-text {
+            animation: bounceIn 0.8s ease-out both;
+        }
+
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3) translateY(-10px);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1) translateY(0);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* 隠しパネルの初期設定 */
+        #hiddenCheatPanel {
+            display: none;
+        }
+
+        /* --- 開発者ツール警告オーバーレイ --- */
+        #devToolsAlert {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(255, 0, 0, 0.95);
+            z-index: 99999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            animation: flashAlert 0.5s infinite alternate;
+        }
+
+        @keyframes flashAlert {
+            from { background-color: rgba(220, 38, 38, 0.95); }
+            to { background-color: rgba(153, 27, 27, 0.95); }
+        }
+
+        .alert-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex flex-col items-center">
+
+    <!-- 警告オーバーレイ -->
+    <div id="devToolsAlert">
+        <div class="alert-icon">⚠️</div>
+        <h1 class="text-4xl font-extrabold mb-4">警告: 不正な操作を検知しました</h1>
+        <p class="text-xl font-bold">開発者ツールの使用は禁止されています。<br>直ちに閉じてページをリロードしてください。</p>
+        <p class="mt-8 text-sm opacity-80">System Security Alert: Code 403 - Access Denied</p>
+    </div>
+
+    <div class="max-w-4xl w-full">
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-6 text-center">🔐 部活動カギ閉め担当 ルーレット</h1>
+
+        <!-- 1画面に集約された操作エリア -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8 flex flex-col space-y-4">
+            
+            <h2 class="text-xl font-bold text-red-600">参加部員リスト (出席番号)</h2>
+            <!-- 入力エリア。数字と改行以外は入力不可 -->
+            <textarea id="memberInput" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition duration-150" placeholder="出席番号を一人ずつ改行して入力してください（例:&#10;1&#10;5&#10;18&#10;25）"></textarea>
+            
+            <!-- リスト操作ボタン -->
+            <div class="flex space-x-3">
+                <button id="updateListButton" class="flex-1 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition duration-200 shadow-md">
+                    リストを更新してルーレットを作成
+                </button>
+                <button id="resetListButton" class="px-4 py-2 bg-gray-400 text-white font-semibold rounded-lg hover:bg-gray-500 transition duration-200 shadow-md">
+                    リセット
+                </button>
+            </div>
+            <p id="memberCount" class="text-sm text-gray-600">現在の候補者数: 0名</p>
+
+            <!-- 隠し設定エリア (デフォルトで非表示) -->
+            <div id="hiddenCheatPanel" class="border-t pt-4 mt-4 bg-yellow-50 p-4 rounded-lg shadow-inner">
+                <h3 class="text-xl font-bold text-yellow-800 mb-3">シークレット設定：強制当選番号</h3>
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 items-center">
+                    <select id="hiddenCheatTarget" class="p-2 border border-gray-300 rounded-lg bg-white w-full sm:w-auto transition duration-150">
+                        <option value="">（選択なし：ランダム）</option>
+                    </select>
+                    <button id="setCheatButton" class="w-full sm:w-auto px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-200 shadow-md">
+                        強制当選番号を確定
+                    </button>
+                    <button id="resetCheatButton" class="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-200 shadow-md">
+                        強制設定を解除
+                    </button>
+                </div>
+                <p id="cheatStatus" class="text-sm text-yellow-700 mt-2 font-medium">現在の設定: ランダム抽選</p>
+            </div>
+        </div>
+
+        <!-- ルーレットと結果エリア -->
+        <div class="flex flex-col md:flex-row md:space-x-8">
+
+            <!-- ルーレット表示エリア -->
+            <div class="w-full md:w-1/2 flex justify-center items-center mb-8 md:mb-0">
+                <div class="roulette-container w-full h-full max-w-sm">
+                    <canvas id="rouletteCanvas" class="w-full h-full"></canvas>
+                    <div class="pointer"></div>
+                </div>
+            </div>
+
+            <!-- 操作・結果エリア -->
+            <div class="w-full md:w-1/2 flex flex-col justify-center bg-white p-6 rounded-xl shadow-lg space-y-4">
+                <div id="statusMessage" class="text-lg text-gray-600 text-center">
+                    リストを更新して、抽選を始めよう！
+                </div>
+
+                <button id="spinButton" disabled class="w-full px-8 py-4 bg-green-500 text-white text-xl font-bold rounded-lg shadow-xl hover:bg-green-600 transition duration-300 transform hover:scale-[1.02] disabled:bg-gray-400 disabled:shadow-none">
+                    ルーレットを回す！
+                </button>
+
+                <!-- 抽選結果表示 (ここを3回クリックで隠しパネルが出現) -->
+                <div id="resultBox" class="text-center p-4 border-t-2 border-red-500 cursor-pointer hover:bg-red-50 transition duration-100">
+                    <h3 class="text-2xl font-extrabold text-gray-800 mb-2">🎉 本日のカギ閉め担当者 🎉</h3>
+                    <p id="resultDisplay" class="text-4xl md:text-5xl font-extrabold text-red-700 h-16 flex items-center justify-center result-text"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let members = [];
+        let canvas, ctx;
+        let isSpinning = false;
+        let rotationAngle = 0; // 現在の回転角度（ラジアン）
+        let spinVelocity = 0; // 回転速度（ラジアン/フレーム）
+        
+        // 摩擦係数を調整 (0.95 -> 0.97): 減速を緩め、停止までの時間を長くする
+        const friction = 0.97; 
+        const fullCircle = 2 * Math.PI;
+
+        const colors = [
+            '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'
+        ]; // Tailwindのカラーパレットを参考に
+        
+        // 抽選から絶対に当たらない出席番号のリスト
+        const EXCLUDED_NUMBERS = ['34', '36']; 
+        let clickCount = 0; // 隠しモード用クリックカウンター
+        let clickTimer;
+        let forcedWinnerNumber = null; // 強制当選番号を格納
+        let predeterminedWinner = null; // 抽選ロジックで決定された最終的な当選番号
+        
+        // 最終停止角度を保存する変数
+        let finalStopAngle = 0; 
+        
+        // 音声コンテキスト（シングルトン）
+        let audioCtx = null;
+        let isAlertTriggered = false;
+
+        // DOM要素の取得
+        const memberInput = document.getElementById('memberInput');
+        const updateListButton = document.getElementById('updateListButton');
+        const resetListButton = document.getElementById('resetListButton');
+        const memberCount = document.getElementById('memberCount');
+        const spinButton = document.getElementById('spinButton');
+        const resultDisplay = document.getElementById('resultDisplay');
+        const statusMessage = document.getElementById('statusMessage');
+        const resultBox = document.getElementById('resultBox'); // クリック対象
+        
+        // 隠しモード関連
+        const hiddenCheatPanel = document.getElementById('hiddenCheatPanel');
+        const hiddenCheatTarget = document.getElementById('hiddenCheatTarget');
+        const setCheatButton = document.getElementById('setCheatButton');
+        const resetCheatButton = document.getElementById('resetCheatButton');
+        const cheatStatus = document.getElementById('cheatStatus');
+        
+        // 警告用DOM
+        const devToolsAlert = document.getElementById('devToolsAlert');
+
+
+        /**
+         * Canvasの初期化とサイズ設定
+         */
+        function initializeCanvas() {
+            canvas = document.getElementById('rouletteCanvas');
+            ctx = canvas.getContext('2d');
+
+            const container = canvas.parentElement;
+            const size = Math.min(container.clientWidth, container.clientHeight, 400);
+            canvas.width = size;
+            canvas.height = size;
+        }
+
+        /**
+         * 隠しターゲットのドロップダウンを更新
+         */
+        function updateCheatTargetOptions() {
+            const allMembers = members; 
+            const selectableMembers = allMembers.filter(member => !EXCLUDED_NUMBERS.includes(member));
+
+            hiddenCheatTarget.innerHTML = '<option value="">（選択なし：ランダム）</option>'; 
+            
+            selectableMembers.forEach(member => { 
+                const option = document.createElement('option');
+                option.value = member;
+                option.textContent = `出席番号 ${member}`; 
+                hiddenCheatTarget.appendChild(option);
+            });
+
+            if (forcedWinnerNumber && (!allMembers.includes(forcedWinnerNumber) || EXCLUDED_NUMBERS.includes(forcedWinnerNumber))) {
+                resetCheat();
+            } else if (forcedWinnerNumber) {
+                 hiddenCheatTarget.value = forcedWinnerNumber;
+            }
+            updateCheatStatusDisplay();
+        }
+
+        /**
+         * 部員リスト（出席番号）の更新とルーレットの再描画
+         */
+        function updateMemberList() {
+            const input = memberInput.value.trim();
+            members = Array.from(new Set(input.split('\n').map(m => m.trim()).filter(m => m.length > 0)));
+
+            memberCount.textContent = `現在の候補者数: ${members.length}名`;
+            spinButton.disabled = members.length < 1; 
+            
+            updateCheatTargetOptions();
+
+            if (members.length === 0) {
+                statusMessage.textContent = "リストに番号を入力してください。";
+            } else {
+                statusMessage.textContent = "リスト更新完了！「ルーレットを回す！」を押してください。";
+            }
+
+            resultDisplay.textContent = '';
+            drawRoulette();
+        }
+
+        /**
+         * ルーレット（円グラフ）の描画
+         */
+        function drawRoulette() {
+            if (!ctx) return;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) * 0.95;
+            const totalMembers = members.length;
+            
+            if (totalMembers === 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ccc';
+                ctx.fill();
+                ctx.font = '16px Inter';
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'center';
+                ctx.fillText('番号をリストに入力してください', centerX, centerY);
+                return;
+            }
+
+            const arcSize = (2 * Math.PI) / totalMembers; 
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotationAngle);
+            ctx.translate(-centerX, -centerY);
+
+            for (let i = 0; i < totalMembers; i++) {
+                const startAngle = i * arcSize;
+                const endAngle = (i + 1) * arcSize;
+                
+                const colorIndex = i % colors.length;
+                let color = colors[colorIndex];
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2; 
+                ctx.stroke();
+
+                ctx.save();
+                ctx.fillStyle = '#fff'; 
+                ctx.font = 'bold 16px Inter';
+                ctx.textAlign = 'right';
+
+                const textAngle = startAngle + arcSize / 2;
+                const textX = centerX + Math.cos(textAngle) * (radius * 0.65);
+                const textY = centerY + Math.sin(textAngle) * (radius * 0.65);
+
+                ctx.translate(textX, textY);
+                ctx.rotate(textAngle + Math.PI / 2); 
+
+                const name = members[i];
+                ctx.fillText(name, 0, 0);
+
+                ctx.restore();
+            }
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.1, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fef2f2';
+            ctx.fill();
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /**
+         * アニメーションループ
+         */
+        function animate() {
+            if (!isSpinning) return;
+
+            rotationAngle += spinVelocity;
+            spinVelocity *= friction;
+
+            if (spinVelocity < 0.0001) {
+                isSpinning = false;
+                spinVelocity = 0;
+                
+                rotationAngle = finalStopAngle;
+                
+                drawRoulette(); 
+                determineWinner();
+                return;
+            }
+
+            drawRoulette();
+            requestAnimationFrame(animate);
+        }
+
+        /**
+         * ルーレットを回す
+         */
+        function spinRoulette() {
+            if (isSpinning || members.length === 0) {
+                return;
+            }
+
+            // ユーザーアクションを契機にAudioContextを初期化（警告音用）
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            resultDisplay.textContent = '...回転中...';
+            spinButton.disabled = true;
+
+            const totalMembers = members.length;
+            const arcSize = (2 * Math.PI) / totalMembers;
+
+            const selectableMembers = members.filter(member => !EXCLUDED_NUMBERS.includes(member));
+
+            if (selectableMembers.length === 0) {
+                statusMessage.textContent = "エラー: 抽選可能な部員がいません（全員が対象外番号です）。リストを確認してください。";
+                spinButton.disabled = false;
+                resultDisplay.textContent = '対象者なし';
+                return; 
+            }
+
+            let winnerMember; 
+
+            if (forcedWinnerNumber && selectableMembers.includes(forcedWinnerNumber)) {
+                winnerMember = forcedWinnerNumber;
+            } else {
+                const randomIndexInSelectable = Math.floor(Math.random() * selectableMembers.length);
+                winnerMember = selectableMembers[randomIndexInSelectable];
+            }
+            
+            predeterminedWinner = winnerMember;
+
+            const targetSegmentIndex = members.indexOf(winnerMember);
+            const centerAngleC = targetSegmentIndex * arcSize + arcSize / 2;
+            let targetRotation = -Math.PI / 2 - centerAngleC;
+
+            targetRotation = targetRotation % fullCircle;
+            if (targetRotation < 0) {
+                targetRotation += fullCircle;
+            }
+
+            const minSpins = 10 + Math.floor(Math.random() * 6); 
+            let baseSpinsAngle = Math.ceil(rotationAngle / fullCircle) * fullCircle;
+
+            finalStopAngle = baseSpinsAngle + targetRotation + (fullCircle * minSpins);
+
+            const rotationNeeded = finalStopAngle - rotationAngle;
+            let v_initial = rotationNeeded * (1 - friction);
+            
+            if (v_initial < 0.2) { 
+                v_initial = 0.2;
+            }
+            spinVelocity = v_initial;
+            
+            isSpinning = true;
+            animate();
+            statusMessage.textContent = "公正な抽選を実施中！"; 
+        }
+
+        /**
+         * 勝者を決定し表示
+         */
+        function determineWinner() {
+            const totalMembers = members.length;
+            const winnerName = predeterminedWinner; 
+
+            if (totalMembers === 0 || !winnerName) {
+                spinButton.disabled = false;
+                return;
+            }
+
+            resultDisplay.textContent = winnerName;
+            spinButton.disabled = false;
+            
+            statusMessage.textContent = `出席番号 ${winnerName} の方、カギ閉めお願いします！`;
+            
+            predeterminedWinner = null;
+        }
+
+        /**
+         * 隠しモードのクリックハンドラ
+         */
+        function handleCheatModeClick() {
+            clickCount++;
+            clearTimeout(clickTimer);
+
+            if (clickCount >= 3) {
+                hiddenCheatPanel.style.display = (hiddenCheatPanel.style.display === 'none' || hiddenCheatPanel.style.display === '') ? 'block' : 'none';
+                clickCount = 0; 
+            } else {
+                clickTimer = setTimeout(() => {
+                    clickCount = 0;
+                }, 1000); 
+            }
+        }
+
+        /**
+         * 強制当選番号を確定
+         */
+        function setCheat() {
+            const selected = hiddenCheatTarget.value;
+
+            if (selected && members.includes(selected)) {
+                if (EXCLUDED_NUMBERS.includes(selected)) {
+                     statusMessage.textContent = 'エラー: 強制当選番号には抽選対象外の番号は設定できません。設定を解除しました。';
+                     forcedWinnerNumber = null;
+                     hiddenCheatTarget.value = '';
+                } else {
+                    forcedWinnerNumber = selected;
+                    hiddenCheatPanel.style.display = 'none'; 
+                }
+            } else if (selected && !members.includes(selected)) {
+                statusMessage.textContent = 'エラー: 選択された番号は現在のリストに存在しません。リストに追加してください。';
+            } else {
+                forcedWinnerNumber = null;
+            }
+            updateCheatStatusDisplay();
+            drawRoulette(); 
+        }
+
+        /**
+         * 強制設定を解除
+         */
+        function resetCheat() {
+            forcedWinnerNumber = null;
+            hiddenCheatTarget.value = '';
+            updateCheatStatusDisplay();
+            drawRoulette();
+        }
+
+        function updateCheatStatusDisplay() {
+            if (forcedWinnerNumber) {
+                cheatStatus.textContent = `現在の設定: 出席番号 ${forcedWinnerNumber} が強制当選します。`;
+                cheatStatus.classList.remove('text-yellow-700');
+                cheatStatus.classList.add('text-green-700', 'font-bold');
+            } else {
+                cheatStatus.textContent = "現在の設定: ランダム抽選";
+                cheatStatus.classList.remove('text-green-700', 'font-bold');
+                cheatStatus.classList.add('text-yellow-700');
+            }
+        }
+
+        function resetList() {
+            memberInput.value = '';
+            members = [];
+            resetCheat(); 
+            hiddenCheatPanel.style.display = 'none'; 
+            updateMemberList();
+            resultDisplay.textContent = '';
+            statusMessage.textContent = "部員リストを入力してください。";
+        }
+
+        /* -----------------------------------------------
+           セキュリティ・警告機能（DevTools対策）
+           ----------------------------------------------- */
+
+        // 警告音を再生する関数（サイレンのような音）
+        function playWarningSound() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.value = 440; 
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                // 音量設定
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+
+                // サイレン
+                const now = audioCtx.currentTime;
+                for(let i=0; i<10; i++) {
+                    oscillator.frequency.linearRampToValueAtTime(800, now + i*0.5);
+                    oscillator.frequency.linearRampToValueAtTime(400, now + i*0.5 + 0.25);
+                }
+
+                oscillator.start();
+                setTimeout(() => {
+                    oscillator.stop();
+                    if(isAlertTriggered) playWarningSound();
+                }, 5000);
+
+            } catch(e) {
+                console.error("Audio warning failed", e);
+            }
+        }
+
+        // 警告を発動する
+        function triggerSecurityAlert() {
+            if (isAlertTriggered) return;
+            isAlertTriggered = true;
+            
+            devToolsAlert.style.display = 'flex';
+            playWarningSound();
+            
+            // 操作妨害
+            setInterval(() => {
+                debugger;
+            }, 100);
+        }
+
+        // 1. 右クリック禁止
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+        });
+
+        // 2. キーボードショートカット禁止（網羅版）
+        document.addEventListener('keydown', function(e) {
+            // MacのCommandキー、WindowsのCtrlキー
+            const isCtrl = e.ctrlKey || e.metaKey; 
+            const isShift = e.shiftKey;
+            const isAlt = e.altKey; // MacではOptionキー
+
+            // --- 共通 ---
+            // F12 (DevTools)
+            if (e.keyCode === 123) {
+                e.preventDefault();
+                triggerSecurityAlert();
+                return false;
+            }
+
+            // --- 開発者ツール系 (DevTools, Console, Elements) ---
+            // Windows/Linux: Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+            // Mac: Cmd+Option+I, Cmd+Option+J, Cmd+Option+C, Cmd+Shift+C
+            // I:73, J:74, C:67, K:75
+            if (
+                (isCtrl && isShift && [73, 74, 67, 75].includes(e.keyCode)) || // Win/Linux & Mac(Shift)
+                (isCtrl && isAlt && [73, 74, 67, 75].includes(e.keyCode))      // Mac(Option)
+            ) {
+                e.preventDefault();
+                triggerSecurityAlert();
+                return false;
+            }
+
+            // --- ソース表示系 (View Source) ---
+            // Windows/Linux: Ctrl+U
+            // Mac: Cmd+Option+U, Cmd+U
+            // U: 85
+            if ((isCtrl && e.keyCode === 85) || (isCtrl && isAlt && e.keyCode === 85)) {
+                e.preventDefault();
+                triggerSecurityAlert();
+                return false;
+            }
+
+            // --- 保存・印刷系 (ページソース流出・レイアウト崩れ防止) ---
+            // Save: Ctrl+S / Cmd+S
+            // Print: Ctrl+P / Cmd+P
+            // S: 83, P: 80
+            if (isCtrl && [83, 80].includes(e.keyCode)) {
+                e.preventDefault();
+                triggerSecurityAlert();
+                return false;
+            }
+        });
+
+        // 3. DevTools検知ロジック（デバッガー法）
+        setInterval(function() {
+            const start = performance.now();
+            debugger; // DevToolsが開いているとここで止まる
+            const end = performance.now();
+            
+            if (end - start > 100) {
+                triggerSecurityAlert();
+            }
+        }, 1000);
+
+        
+        // ページのロード時
+        window.onload = function() {
+            initializeCanvas();
+            memberInput.value = "";
+            updateMemberList();
+            updateCheatStatusDisplay();
+            
+            updateListButton.addEventListener('click', updateMemberList);
+            resetListButton.addEventListener('click', resetList);
+            spinButton.addEventListener('click', spinRoulette);
+            window.addEventListener('resize', initializeCanvas); 
+            
+            // 隠しモード起動トリガー
+            resultBox.addEventListener('click', handleCheatModeClick);
+            setCheatButton.addEventListener('click', setCheat);
+            resetCheatButton.addEventListener('click', resetCheat);
+
+            memberInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9\n]/g, '');
+            });
+            
+            document.body.addEventListener('click', function() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }, { once: true });
+        };
+
+        document.addEventListener('DOMContentLoaded', initializeCanvas);
+
+    </script>
+</body>
+</html>
