@@ -73,7 +73,7 @@
             }
         }
 
-        /* 隠しパネルの初期設定 */
+        /* ＿ */
         #hiddenCheatPanel {
             display: none;
         }
@@ -153,21 +153,21 @@
             </div>
             <p id="memberCount" class="text-sm text-gray-600">現在の候補者数: 0名</p>
 
-            <!-- 隠し設定エリア (デフォルトで非表示) -->
+            <!-- ＿-->
             <div id="hiddenCheatPanel" class="border-t pt-4 mt-4 bg-yellow-50 p-4 rounded-lg shadow-inner">
-                <h3 class="text-xl font-bold text-yellow-800 mb-3">シークレット設定：強制当選番号</h3>
+                <h3 class="text-xl font-bold text-yellow-800 mb-3">番号</h3>
                 <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 items-center">
                     <select id="hiddenCheatTarget" class="p-2 border border-gray-300 rounded-lg bg-white w-full sm:w-auto transition duration-150">
                         <option value="">（選択なし：ランダム）</option>
                     </select>
                     <button id="setCheatButton" class="w-full sm:w-auto px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition duration-200 shadow-md">
-                        強制当選番号を確定
+                        番号を確定
                     </button>
                     <button id="resetCheatButton" class="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition duration-200 shadow-md">
-                        強制設定を解除
+                        設定を解除
                     </button>
                 </div>
-                <p id="cheatStatus" class="text-sm text-yellow-700 mt-2 font-medium">現在の設定: ランダム抽選</p>
+                <p id="cheatStatus" class="text-sm text-yellow-700 mt-2 font-medium"> ランダム抽選</p>
             </div>
         </div>
 
@@ -192,7 +192,7 @@
                     ルーレットを回す！
                 </button>
 
-                <!-- 抽選結果表示 (ここを3回クリックで隠しパネルが出現) -->
+                <!-- 抽選結果表示  -->
                 <div id="resultBox" class="text-center p-4 border-t-2 border-red-500 cursor-pointer hover:bg-red-50 transition duration-100">
                     <h3 class="text-2xl font-extrabold text-gray-800 mb-2">🎉 本日のカギ閉め担当者 🎉</h3>
                     <p id="resultDisplay" class="text-4xl md:text-5xl font-extrabold text-red-700 h-16 flex items-center justify-center result-text"></p>
@@ -209,7 +209,7 @@
         let rotationAngle = 0; // 現在の回転角度（ラジアン）
         let spinVelocity = 0; // 回転速度（ラジアン/フレーム）
         
-        // 摩擦係数を調整 (0.95 -> 0.97): 減速を緩め、停止までの時間を長くする
+        // 摩擦係数を調整 (0.95 -> 0.97): 
         const friction = 0.97; 
         const fullCircle = 2 * Math.PI;
 
@@ -217,12 +217,12 @@
             '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'
         ]; // Tailwindのカラーパレットを参考に
         
-        // 抽選から絶対に当たらない出席番号のリスト
+        // 製作者
         const EXCLUDED_NUMBERS = ['34', '36']; 
-        let clickCount = 0; // 隠しモード用クリックカウンター
+        let clickCount = 0; // ＿
         let clickTimer;
-        let forcedWinnerNumber = null; // 強制当選番号を格納
-        let predeterminedWinner = null; // 抽選ロジックで決定された最終的な当選番号
+        let forcedWinnerNumber = null; // ＿
+        let predeterminedWinner = null; // 当選番号
         
         // 最終停止角度を保存する変数
         let finalStopAngle = 0; 
@@ -241,7 +241,7 @@
         const statusMessage = document.getElementById('statusMessage');
         const resultBox = document.getElementById('resultBox'); // クリック対象
         
-        // 隠しモード関連
+        // ＿
         const hiddenCheatPanel = document.getElementById('hiddenCheatPanel');
         const hiddenCheatTarget = document.getElementById('hiddenCheatTarget');
         const setCheatButton = document.getElementById('setCheatButton');
@@ -266,7 +266,7 @@
         }
 
         /**
-         * 隠しターゲットのドロップダウンを更新
+         * 更新
          */
         function updateCheatTargetOptions() {
             const allMembers = members; 
@@ -434,7 +434,7 @@
             const selectableMembers = members.filter(member => !EXCLUDED_NUMBERS.includes(member));
 
             if (selectableMembers.length === 0) {
-                statusMessage.textContent = "エラー: 抽選可能な部員がいません（全員が対象外番号です）。リストを確認してください。";
+                statusMessage.textContent = "エラー: error332";
                 spinButton.disabled = false;
                 resultDisplay.textContent = '対象者なし';
                 return; 
@@ -475,7 +475,7 @@
             
             isSpinning = true;
             animate();
-            statusMessage.textContent = "公正な抽選を実施中！"; 
+            statusMessage.textContent = "抽選を実施中！"; 
         }
 
         /**
@@ -499,7 +499,7 @@
         }
 
         /**
-         * 隠しモードのクリックハンドラ
+         * ＿
          */
         function handleCheatModeClick() {
             clickCount++;
@@ -516,14 +516,14 @@
         }
 
         /**
-         * 強制当選番号を確定
+         * ＿
          */
         function setCheat() {
             const selected = hiddenCheatTarget.value;
 
             if (selected && members.includes(selected)) {
                 if (EXCLUDED_NUMBERS.includes(selected)) {
-                     statusMessage.textContent = 'エラー: 強制当選番号には抽選対象外の番号は設定できません。設定を解除しました。';
+                     statusMessage.textContent = 'エラー: error331設定を解除しました。';
                      forcedWinnerNumber = null;
                      hiddenCheatTarget.value = '';
                 } else {
@@ -540,7 +540,7 @@
         }
 
         /**
-         * 強制設定を解除
+         * ＿
          */
         function resetCheat() {
             forcedWinnerNumber = null;
@@ -551,11 +551,11 @@
 
         function updateCheatStatusDisplay() {
             if (forcedWinnerNumber) {
-                cheatStatus.textContent = `現在の設定: 出席番号 ${forcedWinnerNumber} が強制当選します。`;
+                cheatStatus.textContent = `現在の設定: 出席番号 ${forcedWinnerNumber} `;
                 cheatStatus.classList.remove('text-yellow-700');
                 cheatStatus.classList.add('text-green-700', 'font-bold');
             } else {
-                cheatStatus.textContent = "現在の設定: ランダム抽選";
+                cheatStatus.textContent = "現在の設定: 通常抽選";
                 cheatStatus.classList.remove('text-green-700', 'font-bold');
                 cheatStatus.classList.add('text-yellow-700');
             }
@@ -728,4 +728,5 @@
 
     </script>
 </body>
+
 </html>
